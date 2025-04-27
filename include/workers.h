@@ -12,7 +12,7 @@
 Каждое зараженное животное уменьшает популярность ежедневно (популярность -1 за каждое больное животное)
 */
 
-enum class WorkerRole { Director, Veterinar, Cleaner, Foodmen };
+enum class WorkerRole { DIRECTOR, VETERINARIAN, CLEANER, FOODMEN };
 
 class Worker {
 public:
@@ -29,11 +29,15 @@ public:
     // Отображение для интерфейса
     std::string getRoleString() const {
         switch (role) {
-            case WorkerRole::Director: return "Директор";
-            case WorkerRole::Veterinar: return "Ветеринар";
-            case WorkerRole::Cleaner: return "Уборщик";
-            case WorkerRole::Foodmen: return "Кормилец";
+            case WorkerRole::DIRECTOR: return "Директор";
+            case WorkerRole::VETERINARIAN: return "Ветеринар";
+            case WorkerRole::CLEANER: return "Уборщик";
+            case WorkerRole::FOODMEN: return "Кормилец";
             default: return "Неизвестно";
         }
     }
+
+	void update() {
+		isWorking = true;
+	}
 };

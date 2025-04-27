@@ -164,9 +164,9 @@ void MainWindow::Game() {
 		if (ImGui::TreeNode("Информация о рабочих:")) {
 			int vetCount = 0, cleanerCount = 0, foodmanCount = 0;
 			for (const auto& worker : zoo->workers) {
-				if (worker.role == WorkerRole::Veterinar) vetCount++;
-				else if (worker.role == WorkerRole::Cleaner) cleanerCount++;
-				else if (worker.role == WorkerRole::Foodmen) foodmanCount++;
+				if (worker.role == WorkerRole::VETERINARIAN) vetCount++;
+				else if (worker.role == WorkerRole::CLEANER) cleanerCount++;
+				else if (worker.role == WorkerRole::FOODMEN) foodmanCount++;
 			}
 			
 			ImGui::Text("Ветеринары: %d", vetCount);
@@ -340,7 +340,7 @@ void MainWindow::Game() {
 		
 		if (ImGui::BeginTable("AnimalsTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 			ImGui::TableSetupColumn("Имя");
-			ImGui::TableSetupColumn("Тип");
+			ImGui::TableSetupColumn("Тип", ImGuiTableColumnFlags_WidthStretch);
 			ImGui::TableSetupColumn("Возраст");
 			ImGui::TableSetupColumn("Состояние");
 			ImGui::TableSetupColumn("Счастье");
@@ -355,7 +355,7 @@ void MainWindow::Game() {
 				ImGui::Text("%s", animal.name.c_str());
 				
 				ImGui::TableNextColumn();
-				ImGui::Text("%s/%s", animal.getDietString().c_str(), animal.getClimateString().c_str());
+				ImGui::TextWrapped("%s/%s", animal.getDietString().c_str(), animal.getClimateString().c_str());
 				
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", animal.age);
@@ -374,19 +374,19 @@ void MainWindow::Game() {
 				ImGui::TextColored(stateColor, "%s", animal.getStateString().c_str());
 				
 				ImGui::TableNextColumn();
-				ImGui::ProgressBar(animal.happiness / 100.0f, ImVec2(-1, 0), 
-								   std::to_string(int(animal.happiness)).c_str());
+				ImGui::ProgressBar(std::max(0.f, std::min(animal.happiness / 100.0f, 1.f)), ImVec2(-1, 0));
 				
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
 				
 				if (animal.state == AnimalState::SICK) {
-					if (ImGui::Button("Лечить")) {
+					if (ImGui::Button("Лечить", ImVec2(0, 0))) {
 						zoo->healAnimal(i);
 					}
+					ImGui::SameLine();
 				}
 				
-				if (ImGui::Button("Продать")) {
+				if (ImGui::Button("Продать", ImVec2(0, 0))) {
 					zoo->sellAnimal(i);
 					ImGui::PopID();
 					break;  // Выходим из цикла, т.к. изменился размер массива
@@ -611,7 +611,7 @@ void MainWindow::Game() {
 				ImGui::Text("%s", worker.isWorking ? "Работает" : "Отдыхает");
 				
 				ImGui::TableNextColumn();
-				if (worker.role != WorkerRole::Director) {
+				if (worker.role != WorkerRole::DIRECTOR) {
 					if (ImGui::Button("Уволить")) {
 						zoo->dismissWorker(i);
 						ImGui::PopID();

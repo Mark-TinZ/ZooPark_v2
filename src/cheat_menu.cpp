@@ -15,7 +15,15 @@ void CheatWindow::Render() {
 			return;
 		}
 		ImGui::Text("Чит меню:");
-		ImGui::InputText("Название зоопарка", &zoo->name[0], 128);
+		static char zooNameBuffer[128];
+		std::string zooName = zoo->getZooName();
+		for (size_t i = 0; i < sizeof(zooNameBuffer) - 1 && i < zooName.size(); ++i) {
+			zooNameBuffer[i] = zooName[i];
+		}
+		zooNameBuffer[std::min(sizeof(zooNameBuffer) - 1, zooName.size())] = '\0';
+		if (ImGui::InputText("Название зоопарка", zooNameBuffer, sizeof(zooNameBuffer))) {
+			zoo->setZooName(std::string(zooNameBuffer));
+		}
 		ImGui::InputInt("Деньги", &zoo->money);
 		ImGui::End();
 	}

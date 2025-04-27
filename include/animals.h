@@ -10,21 +10,22 @@
 
 enum class Diet { HERBIVORES, PREDATORS };
 enum class Climate { TROPIC, CONTINENT, ARCTIC, AQUATIC };
-enum class AnimalState { HEALTHY, SICK, DEAD };
+enum class AnimalState { HEALTHY, SICK, DEAD, SELL };
 
 // Посмотрел сюда 10 баллов дополниельно поставил.
 class Animal {
 public:
-	std::string name;
-	Climate climate;
-	AnimalState state;
-	Diet diet;
-	int age;
-	int weight;
-	int price;
-	int id; // ид 
-	float happiness; // довольство у животных
-	int daysWithoutFood; 
+	int id;					// индификатор
+	int age;				// Возраст
+	Diet diet;				// Диета
+	int price;				// Цеда
+	int weight;				// Вес
+	float happiness;		// довольство у животных
+	Climate climate;		// Климат
+	std::string name;		// Имя
+	AnimalState state;		// Состояние
+	int eatingFood = 1;		// Сколько кушает
+	int daysWithoutFood;	// Дней без еды
 
 	// Задаем требуемые значения
 	Animal(std::string _name, int _age, int _weight, int _price, 
@@ -56,6 +57,16 @@ public:
 			case AnimalState::SICK: return "Болен";
 			case AnimalState::DEAD: return "Мертв";
 			default: return "Неизвестно";
+		}
+	}
+
+	void update() {
+		age++;
+		if (rand() % 10 == 0) {
+			state = AnimalState::SICK;
+		}
+		if (age > 30 && rand() % 20 == 0) {
+			state = AnimalState::DEAD;
 		}
 	}
 };

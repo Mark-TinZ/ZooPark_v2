@@ -8,6 +8,7 @@
 #include "animals.h"
 #include "enclosure.h"
 #include "console.h"
+#include <iostream>
 // TODO: сделать zoo.cpp
 // Перебросить туда всй важное
 /*
@@ -52,7 +53,7 @@ public:
 		name(_name), day(1), food(100), money(start_money), popularity(50),
 		selectedAnimalIndex(-1), selectedEnclosureIndex(-1), selectedWorkerIndex(-1) {
 		srand(static_cast<unsigned int>(time(0))); // Для рандома подготавливаем генератор
-		workers.push_back(Worker("Дядя Саша", 100, WorkerRole::Director, 0, workers.size() + 1)); // Создаем главного
+		workers.push_back(Worker("Дядя Саша", 100, WorkerRole::DIRECTOR, 0, workers.size() + 1)); // Создаем главного
 		
 		// Инициализация истории
 		moneyHistory.push_back(money);
@@ -201,19 +202,19 @@ public:
 
 		switch (workerType) {
 			case 0: // Ветеринар
-				role = WorkerRole::Veterinar;
+				role = WorkerRole::VETERINARIAN;
 				// name = "Ветеринар";
 				price = 500;
 				served = 2;
 				break;
 			case 1: // Уборщик
-				role = WorkerRole::Cleaner;
+				role = WorkerRole::CLEANER;
 				// name = "Уборщик";
 				price = 300;
 				served = 1;
 				break;
 			case 2: // Кормилец
-				role = WorkerRole::Foodmen;
+				role = WorkerRole::FOODMEN;
 				// name = "Кормилец";
 				price = 200;
 				served = 50;
@@ -295,13 +296,33 @@ public:
 	}
 	
 	void dismissWorker(int index) {
-		if (index < 0 || index >= workers.size() || workers[index].role == WorkerRole::Director) {
+		if (index < 0 || index >= workers.size() || workers[index].role == WorkerRole::DIRECTOR) {
 			ConsoleCout() << "Нельзя уволить директора или неверный индекс!" << std::endl;
 			return;
 		}
 		
 		workers.erase(workers.begin() + index);
 		ConsoleCout() << "Работник уволен!" << std::endl;
+	}
+
+	int getCountAnimal() const {
+		int totalAnimal = 0;
+		for (const auto& enclosure : enclosures) {
+			for (const auto& animal : animals) totalAnimal += (animal.state != AnimalState::DEAD) ? 1 : 0;
+		}
+		return totalAnimal;
+	}
+
+	int getCountSickAnimal() const {
+		int totalSickAnimal = 0;
+		for (const auto& enclosure : enclosures) {
+			for (const auto& animal : animals) {
+				if (animal.state == AnimalState::HEALTHY || animal.state == AnimalState::SICK) {
+					totalSickAnimal += 1;
+				}
+			}
+		}
+		return totalSickAnimal;
 	}
 	
 	bool healAnimal(int animalIndex) {
@@ -312,7 +333,7 @@ public:
 		if (animals[animalIndex].state == AnimalState::SICK) {
 			// Проверяем, есть ли свободный ветеринар
 			for (auto& worker : workers) {
-				if (worker.role == WorkerRole::Veterinar && worker.isWorking) {
+				if (worker.role == WorkerRole::VETERINARIAN && worker.isWorking) {
 					animals[animalIndex].state = AnimalState::HEALTHY;
 					worker.isWorking = false; // Ветеринар занят до конца дня
 					return true;
@@ -328,24 +349,54 @@ public:
 		
 		// Сбрасываем состояние работников
 		for (auto& worker : workers) {
-			worker.isWorking = true;
+			worker.update();
 		}
 		
-		// Получаем количество еды от кормильцев
-		for (auto& worker : workers) {
-			if (worker.role == WorkerRole::Foodmen) {
-				food += worker.served;
+		// Расходы
+		int expenses = 0;
+		ConsoleCout() << "Расходы зоопарка " << zooName << std::endl;
+		// Зарплата работникам
+		for (auto& worker : workers) expenses += worker.price;
+		ConsoleCout() << "Зарплаты: " << expenses << std::endl;
+		money -= expenses;
+		expenses = 0;
+		// Расходы на содержание вольера
+		for (auto& enclosure : enclosures) expenses += enclosure.dailyCost;
+		ConsoleCout() << "Расходы на содержание вольеров: " << expenses << std::endl;
+		money -= expenses;
+		expenses = 0;
+
+		// Считаем количество животных больных и здоровых
+		int totalAnimal = getCountAnimal();
+		int totalSickAnimal = getCountSickAnimal();
+
+		// Считаем сколько еды хавают животные
+		int expensesFood = 0;
+		for (const auto& enclosure : enclosures) {
+			for (const auto& animal : animals) {
+				if (animal.state == AnimalState::HEALTHY || animal.state == AnimalState::SICK) {
+					expensesFood += animal.eatingFood;
+				}
 			}
 		}
+
+		// Кормильщик экономит еду
+		for (auto& worker : workers) {
+			if (worker.role == WorkerRole::FOODMEN && worker.isWorking) {
+				expensesFood = expensesFood * 0.95;
+				worker.isWorking = false;
+			}
+		}
+		ConsoleCout() << "Кормление животных: " << expensesFood << std::endl;
 		
 		// Кормление животных
-		int foodNeeded = animals.size();
-		if (food >= foodNeeded) {
-			food -= foodNeeded;
+		if (food >= expensesFood) {
+			food -= expensesFood;
 			
 			// Сбрасываем счетчик дней без еды
 			for (auto& animal : animals) {
 				animal.daysWithoutFood = 0;
+				animal.happiness = std::max(100.f, animal.happiness+10);
 			}
 		} else {
 			// Недостаточно еды, некоторые животные не поедят
@@ -380,17 +431,21 @@ public:
 		
 		// Обновляем вольеры
 		int cleanerCount = 0;
-		for (const auto& worker : workers) {
-			if (worker.role == WorkerRole::Cleaner) {
-				cleanerCount += worker.served;
-			}
+		int dirtyZoo = 0;
+		for (auto& worker : workers) {
+			if (worker.role == WorkerRole::CLEANER) cleanerCount++;
 		}
-		
+
 		for (auto& enclosure : enclosures) {
-			bool hasCleaner = cleanerCount > 0;
-			enclosure.update(hasCleaner);
-			if (hasCleaner) cleanerCount--;
+			enclosure.update();
+
+			if (enclosure.noodClean() && cleanerCount > 0) {
+				enclosure.cleanEnclosure();
+				cleanerCount--;
+			}
+			dirtyZoo += enclosure.dirty;
 		}
+		ConsoleCout() << "Общее загрязнение зоопарка: " << dirtyZoo << std::endl;
 		
 		// Доход от посетителей
 		int visitors = getVisitors();

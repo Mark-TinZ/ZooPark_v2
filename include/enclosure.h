@@ -15,13 +15,13 @@
 
 class Enclosure {
 public:
+	int dirty;
+	int dailyCost;
+	bool selected; // Выбран ли вольер в интерфейсе
 	std::string name;
 	int capacity;
 	Climate climate;
 	std::vector<Animal*> animals;
-	int dirty;
-	int dailyCost;
-	bool selected; // Выбран ли вольер в интерфейсе
 
 	Enclosure(std::string _name, int _capacity, Climate _climate, int _dailyCost) : 
 		name(_name), capacity(_capacity), climate(_climate), dailyCost(_dailyCost), dirty(0), selected(false) {}
@@ -45,23 +45,20 @@ public:
 		}
 	}
 
-	// Перерасчет данных вольера.
-	void update(bool haveCleaner) {
-		dirty += 2;
-		
-		// Если есть уборщик, очищаем вольер
-		if (haveCleaner && dirty > 0) {
-			dirty -= 50;
-			if (dirty < 0) dirty = 0;
-		}
+	// Нужно убрать вольер
+	bool noodClean() {
+		if (dirty > 10) return true;
+		return false;
+	}
 
-		// Уменьшение счастья у животных из-за грязи
-		if (dirty > 50) {
-			for (auto* animal : animals) {
-				animal->happiness -= 5.0f;
-				if (animal->happiness < 0) animal->happiness = 0;
-			}
-		}
+	// Убираемся в вольере
+	void cleanEnclosure() {
+		dirty -= std::min(dirty, 50);
+	}
+
+	// Перерасчет данных вольера.
+	void update() {
+		dirty += 2;
 
 		// Механика болезней
 		if (!animals.empty() && rand() % 10 == 0) { // 10% шанс заражения
@@ -72,25 +69,31 @@ public:
 		}
 
 		// Распространение болезни
-		for (auto* animal : animals) {
-			if (animal->state == AnimalState::SICK && rand() % 2 == 0) {
-				for (auto* other : animals) {
-					if (other->state == AnimalState::HEALTHY && rand() % 2 == 0) {
-						other->state = AnimalState::SICK;
+		int totalAnimal = 0;
+		int totalSickAnimal = 0;
+		for (const auto* animal : animals) {
+			totalAnimal += (animal->state == AnimalState::HEALTHY) ? 1 : 0;
+			totalSickAnimal += (animal->state == AnimalState::SICK) ? 1 : 0;
+		}
+		totalAnimal += totalSickAnimal;
+		// Если есть больное животное, то вирус распространяется на 2 других животных
+		if (totalSickAnimal) {
+			for (int i = 0; i < 2; i++) {
+				for (auto* animal : animals) {
+					if (animal->state == AnimalState::HEALTHY) {
+						animal->state = AnimalState::SICK;
+						break;
 					}
 				}
 			}
 		}
 
 		// Смерть от болезни
-		int sickCount = 0;
-		for (auto* animal : animals) {
-			if (animal->state == AnimalState::SICK) sickCount++;
-		}
-
-		if (sickCount > 0 && sickCount >= animals.size() / 2) {
+		// Тут мы убиваем животное если в вольере болеет больше 50% с шансом 50 на 50
+		if ((totalAnimal - totalSickAnimal) < totalSickAnimal) {
 			for (auto* animal : animals) {
-				if (animal->state == AnimalState::SICK && rand() % 3 == 0) {
+				if (animal->state == AnimalState::SICK && rand() % 2 == 0) {
+					ConsoleCout() << "ID: " << animal->id << " | Имя: " << animal->name << " умерло.\n";
 					animal->state = AnimalState::DEAD;
 				}
 			}
