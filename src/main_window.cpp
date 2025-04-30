@@ -338,13 +338,14 @@ void MainWindow::Game() {
 		// Список имеющихся животных
 		ImGui::Text("Имеющиеся животные:");
 		
-		if (ImGui::BeginTable("AnimalsTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+		if (ImGui::BeginTable("AnimalsTable", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 			ImGui::TableSetupColumn("Имя");
 			ImGui::TableSetupColumn("Тип", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("Пол");
 			ImGui::TableSetupColumn("Возраст");
 			ImGui::TableSetupColumn("Состояние");
 			ImGui::TableSetupColumn("Счастье");
-			ImGui::TableSetupColumn("Действия");
+			ImGui::TableSetupColumn("Действия", ImGuiTableColumnFlags_WidthStretch);
 			ImGui::TableHeadersRow();
 			
 			for (int i = 0; i < zoo->animals.size(); i++) {
@@ -353,15 +354,19 @@ void MainWindow::Game() {
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::Text("%s", animal.name.c_str());
-				
+
+				// Остальная часть кода для отображения животного
 				ImGui::TableNextColumn();
 				ImGui::TextWrapped("%s/%s", animal.getDietString().c_str(), animal.getClimateString().c_str());
-				
+
+				ImGui::TableNextColumn();
+				ImGui::Text("%s", animal.guy ? "Мужик" : "Баба");
+
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", animal.age);
-				
+
 				ImGui::TableNextColumn();
-				
+
 				ImVec4 stateColor;
 				if (animal.state == AnimalState::HEALTHY) {
 					stateColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -370,28 +375,15 @@ void MainWindow::Game() {
 				} else {
 					stateColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
 				}
-				
 				ImGui::TextColored(stateColor, "%s", animal.getStateString().c_str());
-				
+
 				ImGui::TableNextColumn();
 				ImGui::ProgressBar(std::max(0.f, std::min(animal.happiness / 100.0f, 1.f)), ImVec2(-1, 0));
 				
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
 				
-				if (animal.state == AnimalState::SICK) {
-					if (ImGui::Button("Лечить", ImVec2(0, 0))) {
-						zoo->healAnimal(i);
-					}
-					ImGui::SameLine();
-				}
-				
-				if (ImGui::Button("Продать", ImVec2(0, 0))) {
-					zoo->sellAnimal(i);
-					ImGui::PopID();
-					break;  // Выходим из цикла, т.к. изменился размер массива
-				}
-				
+
 				ImGui::PopID();
 			}
 			
