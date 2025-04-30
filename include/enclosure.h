@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include "animals.h"
+#include "console.h"
 
 /*
 В зоопарке есть разные вольеры (количество животных которые могут жить в вольере, тип животных, климат, расходы в день)
@@ -56,6 +57,10 @@ public:
 		dirty -= std::min(dirty, 50);
 	}
 
+	std::string getName() const {
+		return name;
+	}
+
 	// Перерасчет данных вольера.
 	void update() {
 		dirty += 2;
@@ -88,6 +93,7 @@ public:
 			}
 		}
 
+
 		// Смерть от болезни
 		// Тут мы убиваем животное если в вольере болеет больше 50% с шансом 50 на 50
 		if ((totalAnimal - totalSickAnimal) < totalSickAnimal) {
@@ -98,6 +104,16 @@ public:
 				}
 			}
 		}
+	}
+
+	int getCountAnimal() {
+		int countAnimal = 0;
+		for (auto* animal : animals) {
+			if (animal->state == AnimalState::HEALTHY || animal->state == AnimalState::SICK) {
+				countAnimal++;
+			}
+		}
+		return countAnimal;
 	}
 	
 	// Отображение климота вольера

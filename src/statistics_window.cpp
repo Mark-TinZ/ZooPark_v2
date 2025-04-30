@@ -39,7 +39,8 @@ void StatisticsWindow::Render() {
 		ImGui::SameLine(); HelpMarker("Общее кол-во работников.");
 
 		ImGui::Separator();
-		ImGui::Text("Ивенты:");
+		// Кнопка следующий день
+		if (ImGui::Button("Следующий день", ImVec2(0, 40))) {zoo->nextDay();}
 		ImGui::End();
 	}
 }

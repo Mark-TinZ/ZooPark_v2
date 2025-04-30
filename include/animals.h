@@ -17,6 +17,7 @@ class Animal {
 public:
 	int id;					// индификатор
 	int age;				// Возраст
+	bool guy;				// Мужик это или баба
 	Diet diet;				// Диета
 	int price;				// Цеда
 	int weight;				// Вес
@@ -26,13 +27,17 @@ public:
 	AnimalState state;		// Состояние
 	int eatingFood = 1;		// Сколько кушает
 	int daysWithoutFood;	// Дней без еды
+	Animal* parent1 = nullptr; // Ссылка на первого родителя
+	Animal* parent2 = nullptr; // Ссылка на второго родителя
 
 	// Задаем требуемые значения
-	Animal(std::string _name, int _age, int _weight, int _price, 
-		   Diet _diet, Climate _climate, AnimalState _state, int _id) :
+	Animal(std::string _name="", int _age=1, int _weight=0, int _price=0, 
+		   Diet _diet=Diet::HERBIVORES, Climate _climate=Climate::AQUATIC, AnimalState _state=AnimalState::DEAD, int _id=-1) :
 		name(_name), age(_age), weight(_weight), price(_price),
 		diet(_diet), climate(_climate), state(_state), id(_id),
-		happiness(100.0f), daysWithoutFood(0) {}
+		happiness(100.0f), daysWithoutFood(0) {
+			guy = (rand() % 2 == 0) ? true : false;
+		}
 		
 	// Возвращаем название климата.
 	std::string getClimateString() const {
@@ -50,21 +55,34 @@ public:
 		return diet == Diet::HERBIVORES ? "Травоядный" : "Хищник";
 	}
 	
+	bool getGuy() const {
+		return guy;
+	}
+
 	// Возвращает состояние животного
 	std::string getStateString() const {
 		switch (state) {
 			case AnimalState::HEALTHY: return "Здоров";
 			case AnimalState::SICK: return "Болен";
 			case AnimalState::DEAD: return "Мертв";
+			case AnimalState::SELL: return "Продано";
 			default: return "Неизвестно";
 		}
 	}
 
+	std::string getName() const {
+		return name;
+	}
+
 	void update() {
 		age++;
+
+		// Заражение вирусом
 		if (rand() % 10 == 0) {
 			state = AnimalState::SICK;
 		}
+
+		// Смерть от старости
 		if (age > 30 && rand() % 20 == 0) {
 			state = AnimalState::DEAD;
 		}

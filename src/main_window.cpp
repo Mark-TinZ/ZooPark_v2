@@ -214,12 +214,19 @@ void MainWindow::Game() {
 		}
 
 		// Кнопка следующий день
-		if (ImGui::Button("Следующий день", ImVec2(0, 40))) {zoo->nextDay();}
+		// if (ImGui::Button("Следующий день", ImVec2(0, 40))) {zoo->nextDay();}
 		ImGui::EndTabItem();
 	}
 
 	// Вкладка рынка животных
-	if (ImGui::BeginTabItem("Рынок животных")) {
+	if (ImGui::BeginTabItem("Животные")) {
+		// Настройки
+		enum WidgetType {WidgetType_TreeNode};
+		static WidgetType widget_type = WidgetType_TreeNode;
+		static bool show_menu_sex_processin = false;
+		static int id1 = -1;
+		static int id2 = -1;
+
 		static bool show_advice_animal = false;
 		// Отображаем изображение рынка животных если оно есть
 		Img_scene* marketImg = findImageByName(images, "animal");
@@ -337,7 +344,7 @@ void MainWindow::Game() {
 		
 		// Список имеющихся животных
 		ImGui::Text("Имеющиеся животные:");
-		
+		static int selectedAnimalIndex = -1; // Индекс выбранного животного
 		if (ImGui::BeginTable("AnimalsTable", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 			ImGui::TableSetupColumn("Имя");
 			ImGui::TableSetupColumn("Тип", ImGuiTableColumnFlags_WidthStretch);
@@ -350,7 +357,7 @@ void MainWindow::Game() {
 			
 			for (int i = 0; i < zoo->animals.size(); i++) {
 				Animal& animal = zoo->animals[i];
-				
+
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::Text("%s", animal.name.c_str());
@@ -379,17 +386,99 @@ void MainWindow::Game() {
 
 				ImGui::TableNextColumn();
 				ImGui::ProgressBar(std::max(0.f, std::min(animal.happiness / 100.0f, 1.f)), ImVec2(-1, 0));
-				
-				ImGui::TableNextColumn();
-				ImGui::PushID(i);
-				
 
-				ImGui::PopID();
+				ImGui::TableNextColumn();
+				ImGui::PushID(i); // Уникальный ID для каждой строки
+				if (ImGui::Button("Действие")) {
+					selectedAnimalIndex = i; // Устанавливаем выбранное животное
+					ImGui::OpenPopup("AnimalActions");
+				}
+
+				if (ImGui::BeginPopup("AnimalActions")) {
+					if (ImGui::Selectable("Лечить")) {
+						zoo->healAnimal(i);
+					}
+					if (ImGui::Selectable("Продать")) {
+						zoo->sellAnimal(i);
+					}
+					if (ImGui::Selectable("Спаривать")) {
+						id1 = i;
+						// zoo->breedAnimal(i);
+						// ВНИМАНИЕ ГОВНОКОД!!!
+						show_menu_sex_processin = true;
+					}
+					if (ImGui::Selectable("Закрыть")) {
+						ImGui::CloseCurrentPopup();
+					}
+					ImGui::EndPopup();
+				}
+				ImGui::PopID(); // Убедитесь, что PopID вызывается в любом случае
 			}
 			
 			ImGui::EndTable();
 		}
 		
+		if (show_menu_sex_processin) {
+			static int e = 0;
+			ImGui::OpenPopup("Спаривание");
+
+			if (ImGui::BeginPopupModal("Спаривание", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+				ImGui::SetWindowSize(ImVec2(900, 330)); // Устанавливаем фиксированный размер окна
+				
+				if (ImGui::BeginTable("EnclosureAnimalsTable", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+					ImGui::TableSetupColumn("Имя");
+					ImGui::TableSetupColumn("Тип");
+					ImGui::TableSetupColumn("Пол");
+					ImGui::TableSetupColumn("Выбор");
+					ImGui::TableHeadersRow();
+
+					for (size_t j = 0; j < zoo->animals.size(); j++) {
+						Animal& animal = zoo->animals[j];
+						if (animal.state == AnimalState::DEAD || animal.state == AnimalState::SELL) continue;
+
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::Text("%s", animal.getName().c_str());
+
+						ImGui::TableNextColumn();
+						ImGui::TextWrapped("%s/%s", animal.getDietString().c_str(), animal.getClimateString().c_str());
+
+						ImGui::TableNextColumn();
+						ImGui::Text("%s", animal.guy ? "Мужик" : "Баба");
+
+						ImGui::TableNextColumn();
+						ImGui::PushID(static_cast<int>(j));
+						ImGui::RadioButton("##radio", &e, j);
+						ImGui::PopID();
+					}
+
+					ImGui::EndTable();
+				} else {
+					ImGui::Text("Вольер пуст");
+				}
+
+			
+				if (ImGui::Button("Закрыть")) {
+					show_menu_sex_processin = false;
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Чпокаться")) {
+					id2 = e;
+					if (id1 != -1 && id2 != -1) zoo->startSex(id1, id2);
+					else ConsoleCout() << "Ошибка не удалось определить животных" << std::endl;
+
+					show_menu_sex_processin = false;
+				}
+				
+				// Устанавливаем положение окна
+				ImGui::SetWindowPos(
+					ImVec2((ImGui::GetIO().DisplaySize.x - ImGui::GetWindowSize().x) * 0.5f, 
+					(ImGui::GetIO().DisplaySize.y - ImGui::GetWindowSize().y) * 0.5f)
+				);
+				ImGui::EndPopup();
+			}
+		}
+
 		ImGui::EndTabItem();
 	}
 
@@ -499,20 +588,22 @@ void MainWindow::Game() {
 		}
 		
 		// Отображение информации о выбранном вольере
-		if (zoo->selectedEnclosureIndex >= 0 && zoo->selectedEnclosureIndex < zoo->enclosures.size()) {
+		if (zoo && zoo->selectedEnclosureIndex >= 0 && zoo->selectedEnclosureIndex < static_cast<int>(zoo->enclosures.size())) {
 			Enclosure& selectedEnclosure = zoo->enclosures[zoo->selectedEnclosureIndex];
 			
 			ImGui::Separator();
-			ImGui::Text("Информация о вольере \"%s\":", selectedEnclosure.name.c_str());
+			ImGui::Text("Информация о вольере \"%s\":", selectedEnclosure.getName().c_str());
 			ImGui::Text("Климат: %s", selectedEnclosure.getClimateString().c_str());
 			ImGui::Text("Животные в вольере:");
 			
 			if (selectedEnclosure.animals.empty()) {
 				ImGui::Text("Вольер пуст");
 			} else {
-				for (int i = 0; i < selectedEnclosure.animals.size(); i++) {
+				for (size_t i = 0; i < selectedEnclosure.animals.size(); i++) {
 					Animal* animal = selectedEnclosure.animals[i];
-					ImGui::Text("%d. %s (%s)", i+1, animal->name.c_str(), animal->getStateString().c_str());
+					if (!animal || animal->state == AnimalState::DEAD || animal->state == AnimalState::SELL) continue;
+
+					ImGui::Text("%zu. %s (%s)", i + 1, animal->getName().c_str(), animal->getStateString().c_str());
 				}
 			}
 		}
@@ -861,5 +952,5 @@ void MainWindow::Render() {
 	
 // 	if (isOpen) {
 // 		ImGui::OpenPopup("Начало игры");
-// 	}
+// 	 }
 // }

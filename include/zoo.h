@@ -126,32 +126,101 @@ public:
 			return false;
 		}
 		
+		// Проверяем, есть ли подходящий вольер перед покупкой
+		bool hasSuitableEnclosure = false;
+		for (const auto& enclosure : enclosures) {
+			if (enclosure.climate == climate && enclosure.animals.size() < enclosure.capacity) {
+				if (enclosure.animals.empty() || enclosure.animals[0]->diet == diet) {
+					hasSuitableEnclosure = true;
+					break;
+				}
+			}
+		}
+
+		if (!hasSuitableEnclosure) {
+			ConsoleCout() << "Невозможно купить животное: нет подходящего вольера!" << std::endl;
+			return false;
+		}
+
 		// Создаем животное
 		Animal newAnimal(name, age, weight, price, diet, climate, AnimalState::HEALTHY, animals.size() + 1);
 		animals.push_back(newAnimal);
 		money -= price;
-		
-		// Пытаемся разместить в подходящем вольере
-		bool placed = false;
+
+		// Размещаем животное в подходящем вольере
 		for (auto& enclosure : enclosures) {
 			if (enclosure.climate == climate && enclosure.animals.size() < enclosure.capacity) {
 				if (enclosure.animals.empty() || enclosure.animals[0]->diet == diet) {
 					enclosure.addAnimal(&animals.back());
-					placed = true;
+					ConsoleCout() << "Животное куплено и помещено в вольер!" << std::endl;
 					break;
 				}
 			}
 		}
 		
-		if (!placed) {
-			ConsoleCout() << "Животное куплено, но для него нет подходящего вольера!" << std::endl;
-		} else {
-			ConsoleCout() << "Животное куплено и помещено в вольер!" << std::endl;
-		}
-		
 		return true;
 	}
 	
+	Animal birthAnimal(const Animal& animal1, const Animal& animal2) {
+		if (animal1.age > 10 && animal2.age > 10 
+			&& animal1.guy != animal2.guy
+			&& animal1.diet == animal2.diet
+			&& animal1.climate == animal2.climate
+			&& animal1.state == AnimalState::HEALTHY
+			&& animal2.state == AnimalState::HEALTHY) {
+			return Animal("Рожденный_" + animal1.name + "_" + animal2.name, 1, animal1.weight, 3000, animal1.diet, animal1.climate, AnimalState::HEALTHY, animals.size() + 1);
+		}
+		return Animal(); // Return a default-constructed Animal object
+	}
+
+	bool startSex(const int id1, const int id2 ) {
+		const Animal* animal1 = nullptr;
+		const Animal* animal2 = nullptr; 
+		for (size_t i = 0; i < animals.size(); i++) {
+			if (id1 == i) animal1 = &animals[i];
+			if (id2 == i) animal2 = &animals[i];
+		}
+		if (!animal1 || !animal2) {
+			ConsoleCout() << "Ошибка: одно из животных не найдено!" << std::endl;
+			return false;
+		}
+
+		try {
+			int offspringCount = (rand() % 4) + 1;
+			for (int i = 0; i < offspringCount; i++) {
+				Animal newAnimal = birthAnimal(*animal1, *animal2);
+				if (newAnimal.name.empty()) {
+					ConsoleCout() << "Условия для рождения животного не выполнены!" << std::endl;
+					return false;
+				}
+
+				// Проверяем, есть ли подходящий вольер
+				bool hasSuitableEnclosure = false;
+				for (auto& enclosure : enclosures) {
+					if (enclosure.climate == newAnimal.climate && enclosure.animals.size() < enclosure.capacity) {
+						if (enclosure.animals.empty() || enclosure.animals[0]->diet == newAnimal.diet) {
+							enclosure.addAnimal(&newAnimal);
+							hasSuitableEnclosure = true;
+							break;
+						}
+					}
+				}
+
+				if (!hasSuitableEnclosure) {
+					ConsoleCout() << "Невозможно разместить новорожденное животное: нет подходящего вольера!" << std::endl;
+					return false;
+				}
+
+				// Добавляем животное в общий список
+				animals.push_back(newAnimal);
+			}
+			return true;
+		} catch (const std::exception& e) {
+			ConsoleCout() << "Ошибка при размножении: " << e.what() << std::endl;
+			return false;
+		}
+	}
+
 	bool buildEnclosure(const std::string& name, int climateType, int capacity) {
 		Climate climate;
 		int cost, dailyCost;
@@ -352,9 +421,14 @@ public:
 			worker.update();
 		}
 		
+		// Обновить животных
+		for (auto& animal : animals) {
+			animal.update();
+		}
+
 		// Расходы
 		int expenses = 0;
-		ConsoleCout() << "Расходы зоопарка " << zooName << std::endl;
+		ConsoleCout() << "Расходы зоопарка " << name << std::endl;
 		// Зарплата работникам
 		for (auto& worker : workers) expenses += worker.price;
 		ConsoleCout() << "Зарплаты: " << expenses << std::endl;
