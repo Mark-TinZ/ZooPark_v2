@@ -7,11 +7,11 @@
 
 class MainMenuBar {
 private:
-    StatisticsWindow& statistic;
-    ConsoleWindow& console;
+	StatisticsWindow& statistic;
+	ConsoleWindow& console;
 	DemoWindow& demo;
 	CheatWindow& cheatmenu;
 public:
-    MainMenuBar(StatisticsWindow& stat, ConsoleWindow& log, DemoWindow& demowin, CheatWindow& cheat);
-    void Render();
+	MainMenuBar(StatisticsWindow& stat, ConsoleWindow& log, DemoWindow& demowin, CheatWindow& cheat);
+	void Render();
 };

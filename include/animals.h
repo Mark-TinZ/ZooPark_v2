@@ -27,6 +27,7 @@ public:
 	AnimalState state;		// Состояние
 	int eatingFood = 1;		// Сколько кушает
 	int daysWithoutFood;	// Дней без еды
+	int makeSex = 2;		// Сколько дней кд на трахитрахи
 	Animal* parent1 = nullptr; // Ссылка на первого родителя
 	Animal* parent2 = nullptr; // Ссылка на второго родителя
 
@@ -74,8 +75,15 @@ public:
 		return name;
 	}
 
+	bool getMakeSex() {
+		if (makeSex == 0) return true;
+		return false;
+	}
+
 	void update() {
 		age++;
+
+		makeSex = (makeSex > 0) ? makeSex-1 : 0;
 
 		// Заражение вирусом
 		if (rand() % 10 == 0) {

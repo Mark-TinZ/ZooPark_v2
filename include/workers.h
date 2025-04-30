@@ -16,26 +16,26 @@ enum class WorkerRole { DIRECTOR, VETERINARIAN, CLEANER, FOODMEN };
 
 class Worker {
 public:
-    std::string name;
-    WorkerRole role;
-    int price;
-    int served;
-    bool isWorking; // Отображение работает ли рабочий.
+	std::string name;
+	WorkerRole role;
+	int price;
+	int served;
+	bool isWorking; // Отображение работает ли рабочий.
 	int id;
 
-    Worker(std::string _name, int _price, WorkerRole _role, int _served, int _id) :
-        name(_name), price(_price), role(_role), served(_served), isWorking(true), id(_id) {}
-    
-    // Отображение для интерфейса
-    std::string getRoleString() const {
-        switch (role) {
-            case WorkerRole::DIRECTOR: return "Директор";
-            case WorkerRole::VETERINARIAN: return "Ветеринар";
-            case WorkerRole::CLEANER: return "Уборщик";
-            case WorkerRole::FOODMEN: return "Кормилец";
-            default: return "Неизвестно";
-        }
-    }
+	Worker(std::string _name, int _price, WorkerRole _role, int _served, int _id) :
+		name(_name), price(_price), role(_role), served(_served), isWorking(true), id(_id) {}
+	
+	// Отображение для интерфейса
+	std::string getRoleString() const {
+		switch (role) {
+			case WorkerRole::DIRECTOR: return "Директор";
+			case WorkerRole::VETERINARIAN: return "Ветеринар";
+			case WorkerRole::CLEANER: return "Уборщик";
+			case WorkerRole::FOODMEN: return "Кормилец";
+			default: return "Неизвестно";
+		}
+	}
 
 	void update() {
 		isWorking = true;

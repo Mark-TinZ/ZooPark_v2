@@ -438,7 +438,7 @@ void MainWindow::Game() {
 
 						ImGui::TableNextRow();
 						ImGui::TableNextColumn();
-						ImGui::Text("%s", animal.getName().c_str());
+						ImGui::TextWrapped("%s", animal.getName().c_str());
 
 						ImGui::TableNextColumn();
 						ImGui::TextWrapped("%s/%s", animal.getDietString().c_str(), animal.getClimateString().c_str());
@@ -853,6 +853,8 @@ void MainWindow::Game() {
 		ImGui::EndTabItem();
 	}
 
+
+	// Пока не реализованно
 	if (ImGui::BeginTabItem("Рынок")) {
 		// использовать grid для создания вариантов товаров.
 		Img_scene* image = findImageByName(images, "market");

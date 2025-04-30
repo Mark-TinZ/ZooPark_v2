@@ -82,7 +82,7 @@ bool ModalWindow::LoadTexture(const std::string& path, GLuint& textureID, int& w
 }
 
 void ModalWindow::HandleInputConfirmed() {
-    this->statistic.open = true;
+	this->statistic.open = true;
 }
 
 void ModalWindow::AddScene(const Scene& scene) {

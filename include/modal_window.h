@@ -14,12 +14,12 @@ struct Scene {
 	std::string imagePath;
 	GLuint textureID = 0;
 	bool requiresInput = false;  // Флаг, нужен ли ввод
-    std::string inputLabel = ""; // Метка для поля ввода
-    std::string inputBuffer = ""; // Буфер для ввода текста
-    size_t inputBufferSize = 100; // Максимальный размер ввода
-    
-    // Функция обратного вызова при подтверждении ввода
-    std::function<void(const std::string&)> onInputConfirmed = nullptr;
+	std::string inputLabel = ""; // Метка для поля ввода
+	std::string inputBuffer = ""; // Буфер для ввода текста
+	size_t inputBufferSize = 100; // Максимальный размер ввода
+	
+	// Функция обратного вызова при подтверждении ввода
+	std::function<void(const std::string&)> onInputConfirmed = nullptr;
 };
 
 

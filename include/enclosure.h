@@ -29,7 +29,7 @@ public:
 
 	// Добавить животное
 	bool addAnimal(Animal* animal) {
-		if (animals.size() >= capacity) return false;
+		if (getCountAnimal() >= capacity) return false;
 		if (!animals.empty() && animal->diet != animals[0]->diet) return false;
 		if (animal->climate != climate) return false;
 		animals.push_back(animal);
@@ -106,10 +106,10 @@ public:
 		}
 	}
 
-	int getCountAnimal() {
+	int getCountAnimal() const {
 		int countAnimal = 0;
-		for (auto* animal : animals) {
-			if (animal->state == AnimalState::HEALTHY || animal->state == AnimalState::SICK) {
+		for (const auto* animal : animals) {
+			if (animal->state != AnimalState::DEAD && animal->state != AnimalState::SELL) {
 				countAnimal++;
 			}
 		}

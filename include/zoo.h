@@ -75,6 +75,10 @@ public:
 	}
 
 	bool buyAnimal(const std::string& name, int animalType, int age) {
+		if (age < 0) {
+			ConsoleCout() << "Возраст животного не может быть отрицательным!" << std::endl;
+			return false;
+		}
 		Diet diet;
 		Climate climate;
 		int weight, price;
@@ -149,7 +153,7 @@ public:
 
 		// Размещаем животное в подходящем вольере
 		for (auto& enclosure : enclosures) {
-			if (enclosure.climate == climate && enclosure.animals.size() < enclosure.capacity) {
+			if (enclosure.climate == climate && enclosure.getCountAnimal() < enclosure.capacity) {
 				if (enclosure.animals.empty() || enclosure.animals[0]->diet == diet) {
 					enclosure.addAnimal(&animals.back());
 					ConsoleCout() << "Животное куплено и помещено в вольер!" << std::endl;
@@ -161,6 +165,7 @@ public:
 		return true;
 	}
 	
+	// Создаем животное после чпокания
 	Animal birthAnimal(const Animal& animal1, const Animal& animal2) {
 		if (animal1.age > 10 && animal2.age > 10 
 			&& animal1.guy != animal2.guy
@@ -170,9 +175,10 @@ public:
 			&& animal2.state == AnimalState::HEALTHY) {
 			return Animal("Рожденный_" + animal1.name + "_" + animal2.name, 1, animal1.weight, 3000, animal1.diet, animal1.climate, AnimalState::HEALTHY, animals.size() + 1);
 		}
-		return Animal(); // Return a default-constructed Animal object
+		return Animal(); // Возвращаем класс по умолчанию
 	}
 
+	// Функция процесса чпоканья
 	bool startSex(const int id1, const int id2 ) {
 		const Animal* animal1 = nullptr;
 		const Animal* animal2 = nullptr; 
@@ -180,6 +186,8 @@ public:
 			if (id1 == i) animal1 = &animals[i];
 			if (id2 == i) animal2 = &animals[i];
 		}
+
+		// Проверка что животные есть
 		if (!animal1 || !animal2) {
 			ConsoleCout() << "Ошибка: одно из животных не найдено!" << std::endl;
 			return false;
@@ -548,18 +556,16 @@ public:
 		if (popularity > 100) popularity = 100;
 		
 		// Удаляем мертвых животных
+		for (auto& enclosure : enclosures) {
+			enclosure.animals.erase(
+				std::remove_if(enclosure.animals.begin(), enclosure.animals.end(),
+							   [](Animal* animal) { return animal->state == AnimalState::DEAD; }),
+				enclosure.animals.end());
+		}
+		
+		// Удаляем мертвых животных из общего списка
 		for (int i = animals.size() - 1; i >= 0; i--) {
 			if (animals[i].state == AnimalState::DEAD) {
-				// Удаляем из вольера
-				for (auto& enclosure : enclosures) {
-					auto it = std::find(enclosure.animals.begin(), enclosure.animals.end(), &animals[i]);
-					if (it != enclosure.animals.end()) {
-						enclosure.animals.erase(it);
-						break;
-					}
-				}
-				
-				// Удаляем из списка
 				animals.erase(animals.begin() + i);
 			}
 		}
