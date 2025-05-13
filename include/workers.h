@@ -16,12 +16,12 @@ enum class WorkerRole { DIRECTOR, VETERINARIAN, CLEANER, FOODMEN };
 
 class Worker {
 public:
-	std::string name;
-	WorkerRole role;
-	int price;
-	int served;
-	bool isWorking; // Отображение работает ли рабочий.
-	int id;
+	std::string name;	// Имя работника
+	WorkerRole role;	// Должность работника
+	int price;			// Стоимость работника в сутки
+	int served;			// Сколько может обслужить
+	bool isWorking;		// Может ли работник выполнить работу?
+	int id;				// Индекс
 
 	Worker(std::string _name, int _price, WorkerRole _role, int _served, int _id) :
 		name(_name), price(_price), role(_role), served(_served), isWorking(true), id(_id) {}

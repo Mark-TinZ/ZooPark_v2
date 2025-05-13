@@ -153,7 +153,7 @@ void MainWindow::Game() {
 			// Больные животные
 			int sickCount = 0;
 			for (const auto& animal : zoo->animals) {
-				if (animal.state == AnimalState::SICK) sickCount++;
+				if (animal->state == AnimalState::SICK) sickCount++;
 			}
 			ImGui::Text("Больных животных: %d", sickCount);
 			
@@ -356,36 +356,36 @@ void MainWindow::Game() {
 			ImGui::TableHeadersRow();
 			
 			for (int i = 0; i < zoo->animals.size(); i++) {
-				Animal& animal = zoo->animals[i];
+				std::shared_ptr<Animal>& animal = zoo->animals[i];
 
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
-				ImGui::Text("%s", animal.name.c_str());
+				ImGui::Text("%s", animal->getName());
 
 				// Остальная часть кода для отображения животного
 				ImGui::TableNextColumn();
-				ImGui::TextWrapped("%s/%s", animal.getDietString().c_str(), animal.getClimateString().c_str());
+				ImGui::TextWrapped("%s/%s", animal->getDietString().c_str(), animal->getClimateString().c_str());
 
 				ImGui::TableNextColumn();
-				ImGui::Text("%s", animal.guy ? "Мужик" : "Баба");
+				ImGui::Text("%s", animal->guy ? "Мужик" : "Баба");
 
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", animal.age);
+				ImGui::Text("%d", animal->age);
 
 				ImGui::TableNextColumn();
 
 				ImVec4 stateColor;
-				if (animal.state == AnimalState::HEALTHY) {
+				if (animal->state == AnimalState::HEALTHY) {
 					stateColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
-				} else if (animal.state == AnimalState::SICK) {
+				} else if (animal->state == AnimalState::SICK) {
 					stateColor = ImVec4(1.0f, 0.75f, 0.0f, 1.0f);
 				} else {
 					stateColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
 				}
-				ImGui::TextColored(stateColor, "%s", animal.getStateString().c_str());
+				ImGui::TextColored(stateColor, "%s", animal->getStateString().c_str());
 
 				ImGui::TableNextColumn();
-				ImGui::ProgressBar(std::max(0.f, std::min(animal.happiness / 100.0f, 1.f)), ImVec2(-1, 0));
+				ImGui::ProgressBar(std::max(0.f, std::min(animal->happiness / 100.0f, 1.f)), ImVec2(-1, 0));
 
 				ImGui::TableNextColumn();
 				ImGui::PushID(i); // Уникальный ID для каждой строки
@@ -396,13 +396,13 @@ void MainWindow::Game() {
 
 				if (ImGui::BeginPopup("AnimalActions")) {
 					if (ImGui::Selectable("Лечить")) {
-						zoo->healAnimal(i);
+						zoo->healAnimal(animal->id);  // Предполагаем, что метод теперь принимает ID
 					}
 					if (ImGui::Selectable("Продать")) {
-						zoo->sellAnimal(i);
+						zoo->sellAnimal(animal->id);   // Предполагаем, что метод теперь принимает ID
 					}
 					if (ImGui::Selectable("Спаривать")) {
-						id1 = i;
+						id1 = animal->id;  // Храним ID животного, а не индекс в векторе
 						// zoo->breedAnimal(i);
 						// ВНИМАНИЕ ГОВНОКОД!!!
 						show_menu_sex_processin = true;
@@ -433,7 +433,11 @@ void MainWindow::Game() {
 					ImGui::TableHeadersRow();
 
 					for (size_t j = 0; j < zoo->animals.size(); j++) {
-						Animal& animal = zoo->animals[j];
+						// Получаем указатель на Animal и разыменовываем его
+						std::shared_ptr<Animal> animalPtr = zoo->animals[j];
+						if (!animalPtr) continue; // Проверяем, что указатель не пустой
+
+						Animal& animal = *animalPtr; // Разыменовываем указатель, чтобы получить ссылку на Animal
 						if (animal.state == AnimalState::DEAD || animal.state == AnimalState::SELL) continue;
 
 						ImGui::TableNextRow();
@@ -464,7 +468,7 @@ void MainWindow::Game() {
 				ImGui::SameLine();
 				if (ImGui::Button("Чпокаться")) {
 					id2 = e;
-					if (id1 != -1 && id2 != -1) zoo->startSex(id1, id2);
+					if (id1 != -1 && id2 != -1) zoo->startBreeding(id1, id2);
 					else ConsoleCout() << "Ошибка не удалось определить животных" << std::endl;
 
 					show_menu_sex_processin = false;
@@ -599,11 +603,17 @@ void MainWindow::Game() {
 			if (selectedEnclosure.animals.empty()) {
 				ImGui::Text("Вольер пуст");
 			} else {
-				for (size_t i = 0; i < selectedEnclosure.animals.size(); i++) {
-					Animal* animal = selectedEnclosure.animals[i];
-					if (!animal || animal->state == AnimalState::DEAD || animal->state == AnimalState::SELL) continue;
-
-					ImGui::Text("%zu. %s (%s)", i + 1, animal->getName().c_str(), animal->getStateString().c_str());
+				// Итерируем по weak_ptr животных
+				for (const auto& weakAnimal : selectedEnclosure.animals) {
+					// Пытаемся получить shared_ptr из weak_ptr
+					if (auto animal = weakAnimal.lock()) {
+						// Проверяем состояние животного
+						if (animal->state == AnimalState::DEAD || animal->state == AnimalState::SELL) continue;
+						
+						// Получаем данные о животном
+						animalData data = animal->getAnimalData();
+						ImGui::Text("%d. %s (%s)", data.id, data.name.c_str(), animal->getClimateString().c_str());
+					}
 				}
 			}
 		}

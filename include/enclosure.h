@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <memory>
 #include "animals.h"
 #include "console.h"
 
@@ -16,42 +17,70 @@
 
 class Enclosure {
 public:
-	int dirty;
-	int dailyCost;
-	bool selected; // Выбран ли вольер в интерфейсе
-	std::string name;
-	int capacity;
-	Climate climate;
-	std::vector<Animal*> animals;
+	int id;							// Ид.
+	int dirty;						// Загрязнение вольера
+	int dailyCost;					// Стоимость обслуживания
+	bool selected;					// Выбран ли вольер в интерфейсе
+	std::string name;				// Название вольера
+	int capacity;					// Вместимость
+	Climate climate;				// Климат: Умереный, Тропики, Арктика, Водный
+	// std::vector<Animal*> animals;	// Животные которые живут в вольере
+
+	std::vector<std::weak_ptr<Animal>> animals;
 
 	Enclosure(std::string _name, int _capacity, Climate _climate, int _dailyCost) : 
 		name(_name), capacity(_capacity), climate(_climate), dailyCost(_dailyCost), dirty(0), selected(false) {}
 
 	// Добавить животное
-	bool addAnimal(Animal* animal) {
+	bool addAnimal(const std::shared_ptr<Animal>& animal) {
 		if (getCountAnimal() >= capacity) return false;
-		if (!animals.empty() && animal->diet != animals[0]->diet) return false;
+
+		// Проверяем совместимость с другими животными
+		if (!animals.empty()) {
+			// Получаем первое живое животное для проверки диеты
+			for (const auto& weakAnimal : animals) {
+				if (auto firstAnimal = weakAnimal.lock()) {
+					if (animal->diet != firstAnimal->diet) return false;
+					break;
+				}
+			}
+		}
+
 		if (animal->climate != climate) return false;
-		animals.push_back(animal);
+		animals.push_back(animal); // Теперь это создает weak_ptr из shared_ptr
 		return true;
 	}
 
 	// Удалить животное
-	void removeAnimal(Animal* animal) {
-		for (auto it = animals.begin(); it != animals.end(); ++it) {
-			if (*it == animal) {
-				animals.erase(it);
-				return;
-			}
-		}
+	void removeAnimal(const std::shared_ptr<Animal>& animal) {
+		animals.erase(
+			std::remove_if(animals.begin(), animals.end(), 
+				[&animal](const std::weak_ptr<Animal>& weakPtr) {
+					auto sharedPtr = weakPtr.lock();
+					return !sharedPtr || sharedPtr == animal;
+				}
+			),
+			animals.end()
+		);
+	}
+
+	// Очистка недействительных указателей
+	void cleanupExpiredAnimals() {
+		animals.erase(
+			std::remove_if(animals.begin(), animals.end(),
+				[](const std::weak_ptr<Animal>& weakPtr) {
+					return weakPtr.expired();
+				}
+			),
+			animals.end()
+		);
 	}
 
 	// Нужно убрать вольер
 	bool noodClean() {
-		if (dirty > 10) return true;
-		return false;
+		return dirty > 10;
 	}
-
+	
 	// Убираемся в вольере
 	void cleanEnclosure() {
 		dirty -= std::min(dirty, 50);
@@ -63,41 +92,51 @@ public:
 
 	// Перерасчет данных вольера.
 	void update() {
+		// Сначала удаляем недействительные указатели
+		cleanupExpiredAnimals();
+
 		dirty += 2;
 
 		// Механика болезней
-		if (!animals.empty() && rand() % 10 == 0) { // 10% шанс заражения
-			int idx = rand() % animals.size();
-			if (animals[idx]->state == AnimalState::HEALTHY) {
-				animals[idx]->state = AnimalState::SICK;
+		std::vector<std::shared_ptr<Animal>> validAnimals;
+		for (const auto& weakAnimal : animals) {
+			if (auto animal = weakAnimal.lock()) {
+				validAnimals.push_back(animal);
+			}
+		}
+		
+		if (!validAnimals.empty() && rand() % 10 == 0) { // 10% шанс заражения
+			int idx = rand() % validAnimals.size();
+			if (validAnimals[idx]->state == AnimalState::HEALTHY) {
+				validAnimals[idx]->state = AnimalState::SICK;
 			}
 		}
 
 		// Распространение болезни
 		int totalAnimal = 0;
 		int totalSickAnimal = 0;
-		for (const auto* animal : animals) {
+		for (const auto& animal : validAnimals) {
 			totalAnimal += (animal->state == AnimalState::HEALTHY) ? 1 : 0;
 			totalSickAnimal += (animal->state == AnimalState::SICK) ? 1 : 0;
 		}
 		totalAnimal += totalSickAnimal;
+
 		// Если есть больное животное, то вирус распространяется на 2 других животных
 		if (totalSickAnimal) {
-			for (int i = 0; i < 2; i++) {
-				for (auto* animal : animals) {
-					if (animal->state == AnimalState::HEALTHY) {
-						animal->state = AnimalState::SICK;
-						break;
-					}
+			int infected = 0;
+			for (auto& animal : validAnimals) {
+				if (infected >= 2) break;
+				if (animal->state == AnimalState::HEALTHY) {
+					animal->state = AnimalState::SICK;
+					infected++;
 				}
 			}
 		}
 
-
 		// Смерть от болезни
 		// Тут мы убиваем животное если в вольере болеет больше 50% с шансом 50 на 50
 		if ((totalAnimal - totalSickAnimal) < totalSickAnimal) {
-			for (auto* animal : animals) {
+			for (auto& animal : validAnimals) {
 				if (animal->state == AnimalState::SICK && rand() % 2 == 0) {
 					ConsoleCout() << "ID: " << animal->id << " | Имя: " << animal->name << " умерло.\n";
 					animal->state = AnimalState::DEAD;
@@ -108,9 +147,11 @@ public:
 
 	int getCountAnimal() const {
 		int countAnimal = 0;
-		for (const auto* animal : animals) {
-			if (animal->state != AnimalState::DEAD && animal->state != AnimalState::SELL) {
-				countAnimal++;
+		for (const auto& weakAnimal : animals) {
+			if (auto animal = weakAnimal.lock()) {
+				if (animal->state != AnimalState::DEAD && animal->state != AnimalState::SELL) {
+					countAnimal++;
+				}
 			}
 		}
 		return countAnimal;

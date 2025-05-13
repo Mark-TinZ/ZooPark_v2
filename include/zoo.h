@@ -3,12 +3,14 @@
 #include <string>
 #include <cstdlib>
 #include <ctime>
+#include <memory>
 #include <algorithm>
 #include "workers.h"
 #include "animals.h"
 #include "enclosure.h"
 #include "console.h"
 #include <iostream>
+
 // TODO: сделать zoo.cpp
 // Перебросить туда всй важное
 /*
@@ -28,14 +30,14 @@
 
 class Zoo {
 public:
-	std::string name = "";
-	int day;
-	int food;
-	int money;
-	int popularity;
-	std::vector<Animal> animals;
-	std::vector<Worker> workers;
-	std::vector<Enclosure> enclosures;
+	std::string name = "";							// Название зоопарка
+	int day;										// Сколько дней работает зоопарк
+	int food;										// Сколько запасов еды в зоопарке
+	int money;										// Сколько денег в зоопарке
+	int popularity;									// Популярность зоопарка
+	std::vector<std::shared_ptr<Animal>> animals;	// Все животные которые есть в зоопарке
+	std::vector<Worker> workers;					// Все работники в зоопарке
+	std::vector<Enclosure> enclosures;				// Все вольеры в зоопарке
 	
 	// История для графиков
 	std::vector<float> moneyHistory;
@@ -133,96 +135,174 @@ public:
 		// Проверяем, есть ли подходящий вольер перед покупкой
 		bool hasSuitableEnclosure = false;
 		for (const auto& enclosure : enclosures) {
-			if (enclosure.climate == climate && enclosure.animals.size() < enclosure.capacity) {
-				if (enclosure.animals.empty() || enclosure.animals[0]->diet == diet) {
+			if (enclosure.climate == climate && enclosure.getCountAnimal() < enclosure.capacity) {
+				bool allAnimalsMatchDiet = true;
+				for (const auto& weakAnimal : enclosure.animals) {
+					// Проверяем, что указатель действителен
+					if (auto animal = weakAnimal.lock()) {
+						if (animal->diet != diet) {
+							allAnimalsMatchDiet = false;
+							break;
+						}
+					}
+				}
+				if (enclosure.animals.empty() || allAnimalsMatchDiet) {
 					hasSuitableEnclosure = true;
 					break;
 				}
 			}
 		}
-
+		
 		if (!hasSuitableEnclosure) {
-			ConsoleCout() << "Невозможно купить животное: нет подходящего вольера!" << std::endl;
+			ConsoleCout() << "Нет подходящего вольера для этого животного!" << std::endl;
 			return false;
 		}
-
-		// Создаем животное
-		Animal newAnimal(name, age, weight, price, diet, climate, AnimalState::HEALTHY, animals.size() + 1);
+		
+		// Создаем новое животное
+		auto newAnimal = std::make_shared<Animal>();
+		newAnimal->name = name;
+		newAnimal->age = age;
+		newAnimal->weight = weight;
+		newAnimal->diet = diet;
+		newAnimal->climate = climate;
+		newAnimal->state = AnimalState::HEALTHY;
+		newAnimal->id = animals.empty() ? 1 : animals.back()->id + 1;
+		
+		// Добавляем животное в зоопарк
 		animals.push_back(newAnimal);
-		money -= price;
-
-		// Размещаем животное в подходящем вольере
+		
+		// Поиск подходящего вольера и добавление животного туда
 		for (auto& enclosure : enclosures) {
 			if (enclosure.climate == climate && enclosure.getCountAnimal() < enclosure.capacity) {
-				if (enclosure.animals.empty() || enclosure.animals[0]->diet == diet) {
-					enclosure.addAnimal(&animals.back());
-					ConsoleCout() << "Животное куплено и помещено в вольер!" << std::endl;
+				bool canAddToEnclosure = true;
+				for (const auto& weakAnimal : enclosure.animals) {
+					if (auto animal = weakAnimal.lock()) {
+						if (animal->diet != diet) {
+							canAddToEnclosure = false;
+							break;
+						}
+					}
+				}
+				
+				if (enclosure.animals.empty() || canAddToEnclosure) {
+					enclosure.addAnimal(newAnimal);
 					break;
 				}
 			}
 		}
 		
+		// Вычитаем стоимость животного
+		money -= price;
+		
+		ConsoleCout() << "Животное " << name << " успешно куплено и помещено в вольер!" << std::endl;
 		return true;
 	}
+
+	// Проверяем, могут ли животные размножаться
+	bool canBreed(const std::shared_ptr<Animal>& animal1, const std::shared_ptr<Animal>& animal2) {
+		if (!animal1 || !animal2) return false;
+		
+		return (animal1->age > 10 && animal2->age > 10 
+				&& animal1->guy != animal2->guy
+				&& animal1->diet == animal2->diet
+				&& animal1->climate == animal2->climate
+				&& animal1->state == AnimalState::HEALTHY
+				&& animal2->state == AnimalState::HEALTHY);
+	}
 	
-	// Создаем животное после чпокания
-	Animal birthAnimal(const Animal& animal1, const Animal& animal2) {
-		if (animal1.age > 10 && animal2.age > 10 
-			&& animal1.guy != animal2.guy
-			&& animal1.diet == animal2.diet
-			&& animal1.climate == animal2.climate
-			&& animal1.state == AnimalState::HEALTHY
-			&& animal2.state == AnimalState::HEALTHY) {
-			return Animal("Рожденный_" + animal1.name + "_" + animal2.name, 1, animal1.weight, 3000, animal1.diet, animal1.climate, AnimalState::HEALTHY, animals.size() + 1);
-		}
-		return Animal(); // Возвращаем класс по умолчанию
+	// Создаем новое животное в результате чпокания
+	std::shared_ptr<Animal> createOffspring(const std::shared_ptr<Animal>& animal1, const std::shared_ptr<Animal>& animal2) {
+		auto offspring = std::make_shared<Animal>();
+		offspring->name = "Рожденный_" + animal1->name + "_" + animal2->name;
+		offspring->age = 1;
+		offspring->weight = animal1->weight; // Можно использовать среднее значение если нужно
+		offspring->diet = animal1->diet;
+		offspring->climate = animal1->climate;
+		offspring->state = AnimalState::HEALTHY;
+		offspring->id = animals.empty() ? 1 : animals.back()->id + 1;
+		offspring->guy = (rand() % 2 == 0) ? animal1->guy : animal2->guy; // Случайный пол
+		
+		return offspring;
 	}
 
-	// Функция процесса чпоканья
-	bool startSex(const int id1, const int id2 ) {
-		const Animal* animal1 = nullptr;
-		const Animal* animal2 = nullptr; 
-		for (size_t i = 0; i < animals.size(); i++) {
-			if (id1 == i) animal1 = &animals[i];
-			if (id2 == i) animal2 = &animals[i];
+	// Функция процесса размножения
+	bool startBreeding(const int id1, const int id2) {
+		std::shared_ptr<Animal> animal1 = nullptr;
+		std::shared_ptr<Animal> animal2 = nullptr;
+		
+		// Находим животных по id
+		for (const auto& animal : animals) {
+			if (animal->id == id1) animal1 = animal;
+			if (animal->id == id2) animal2 = animal;
 		}
-
-		// Проверка что животные есть
+		
+		// Проверка что животные найдены
 		if (!animal1 || !animal2) {
 			ConsoleCout() << "Ошибка: одно из животных не найдено!" << std::endl;
 			return false;
 		}
-
+		
+		// Проверяем, могут ли животные размножаться
+		if (!canBreed(animal1, animal2)) {
+			ConsoleCout() << "Условия для размножения не выполнены!" << std::endl;
+			return false;
+		}
+		
 		try {
+			// Определяем количество потомства (от 1 до 4)
 			int offspringCount = (rand() % 4) + 1;
+			int successfulBirths = 0;
+			
 			for (int i = 0; i < offspringCount; i++) {
-				Animal newAnimal = birthAnimal(*animal1, *animal2);
-				if (newAnimal.name.empty()) {
-					ConsoleCout() << "Условия для рождения животного не выполнены!" << std::endl;
-					return false;
-				}
-
+				// Создаем нового детеныша
+				auto newAnimal = createOffspring(animal1, animal2);
+				
 				// Проверяем, есть ли подходящий вольер
 				bool hasSuitableEnclosure = false;
 				for (auto& enclosure : enclosures) {
-					if (enclosure.climate == newAnimal.climate && enclosure.animals.size() < enclosure.capacity) {
-						if (enclosure.animals.empty() || enclosure.animals[0]->diet == newAnimal.diet) {
-							enclosure.addAnimal(&newAnimal);
+					if (enclosure.climate == newAnimal->climate && enclosure.getCountAnimal() < enclosure.capacity) {
+						bool canAddToEnclosure = true;
+						
+						// Проверяем совместимость с существующими животными в вольере
+						for (const auto& weakAnimal : enclosure.animals) {
+							if (auto existingAnimal = weakAnimal.lock()) {
+								if (existingAnimal->diet != newAnimal->diet) {
+									canAddToEnclosure = false;
+									break;
+								}
+							}
+						}
+						
+						if (enclosure.animals.empty() || canAddToEnclosure) {
+							// Сначала добавляем животное в зоопарк
+							animals.push_back(newAnimal);
+							
+							// Затем добавляем в вольер
+							enclosure.addAnimal(newAnimal);
+							
 							hasSuitableEnclosure = true;
+							successfulBirths++;
+							ConsoleCout() << "Родилось новое животное: " << newAnimal->name << " (ID: " << newAnimal->id << ")" << std::endl;
 							break;
 						}
 					}
 				}
-
+				
 				if (!hasSuitableEnclosure) {
 					ConsoleCout() << "Невозможно разместить новорожденное животное: нет подходящего вольера!" << std::endl;
-					return false;
+					// Прерываем цикл, если мы не можем разместить больше животных
+					break;
 				}
-
-				// Добавляем животное в общий список
-				animals.push_back(newAnimal);
 			}
-			return true;
+			
+			if (successfulBirths > 0) {
+				ConsoleCout() << "Успешно родилось " << successfulBirths << " животных!" << std::endl;
+				return true;
+			} else {
+				ConsoleCout() << "Не удалось разместить ни одного новорожденного животного." << std::endl;
+				return false;
+			}
+			
 		} catch (const std::exception& e) {
 			ConsoleCout() << "Ошибка при размножении: " << e.what() << std::endl;
 			return false;
@@ -341,35 +421,33 @@ public:
 		return true;
 	}
 	
-	void sellAnimal(int index) {
-		if (index < 0 || index >= animals.size()) {
-			ConsoleCout() << "Неверный индекс животного!" << std::endl;
+	void sellAnimal(int animalId) {
+		// Находим животное по ID (не по индексу)
+		auto it = std::find_if(animals.begin(), animals.end(),
+							[animalId](const std::shared_ptr<Animal>& animal) {
+								return animal->id == animalId;
+							});
+		
+		if (it == animals.end()) {
+			ConsoleCout() << "Животное с ID " << animalId << " не найдено!" << std::endl;
 			return;
 		}
 		
-		Animal& animal = animals[index];
+		std::shared_ptr<Animal> animal = *it;
 		
 		// Находим вольер животного и удаляем его оттуда
 		for (auto& enclosure : enclosures) {
-			auto it = std::find(enclosure.animals.begin(), enclosure.animals.end(), &animal);
-			if (it != enclosure.animals.end()) {
-				enclosure.animals.erase(it);
-				break;
-			}
+			enclosure.removeAnimal(animal); // Используем метод removeAnimal, который мы ранее модифицировали
 		}
 		
 		// Получаем половину цены
-		money += animal.price / 2;
+		money += animal->price / 2;
+
+		// Указываем что животное продано, но сохраняем его для статистики
+		animal->state = AnimalState::SELL;
 		
-		// Удаляем животное
-		animals.erase(animals.begin() + index);
-		
-		// Обновляем индексы всех оставшихся животных
-		for (size_t i = 0; i < animals.size(); i++) {
-			animals[i].id = i + 1;
-		}
-		
-		ConsoleCout() << "Животное продано!" << std::endl;
+		ConsoleCout() << "Животное " << animal->name << " (ID: " << animal->id << ") продано за " 
+					<< (animal->price / 2) << " денег!" << std::endl;
 	}
 	
 	void dismissWorker(int index) {
@@ -385,7 +463,7 @@ public:
 	int getCountAnimal() const {
 		int totalAnimal = 0;
 		for (const auto& enclosure : enclosures) {
-			for (const auto& animal : animals) totalAnimal += (animal.state != AnimalState::DEAD) ? 1 : 0;
+			for (const auto& animal : animals) totalAnimal += (animal->state != AnimalState::DEAD) ? 1 : 0;
 		}
 		return totalAnimal;
 	}
@@ -394,7 +472,7 @@ public:
 		int totalSickAnimal = 0;
 		for (const auto& enclosure : enclosures) {
 			for (const auto& animal : animals) {
-				if (animal.state == AnimalState::HEALTHY || animal.state == AnimalState::SICK) {
+				if (animal->state == AnimalState::HEALTHY || animal->state == AnimalState::SICK) {
 					totalSickAnimal += 1;
 				}
 			}
@@ -407,11 +485,11 @@ public:
 			return false;
 		}
 		
-		if (animals[animalIndex].state == AnimalState::SICK) {
+		if (animals[animalIndex]->state == AnimalState::SICK) {
 			// Проверяем, есть ли свободный ветеринар
 			for (auto& worker : workers) {
 				if (worker.role == WorkerRole::VETERINARIAN && worker.isWorking) {
-					animals[animalIndex].state = AnimalState::HEALTHY;
+					animals[animalIndex]->state = AnimalState::HEALTHY;
 					worker.isWorking = false; // Ветеринар занят до конца дня
 					return true;
 				}
@@ -431,7 +509,7 @@ public:
 		
 		// Обновить животных
 		for (auto& animal : animals) {
-			animal.update();
+			animal->update();  // Используем -> вместо . для shared_ptr
 		}
 
 		// Расходы
@@ -454,11 +532,9 @@ public:
 
 		// Считаем сколько еды хавают животные
 		int expensesFood = 0;
-		for (const auto& enclosure : enclosures) {
-			for (const auto& animal : animals) {
-				if (animal.state == AnimalState::HEALTHY || animal.state == AnimalState::SICK) {
-					expensesFood += animal.eatingFood;
-				}
+		for (const auto& animal : animals) {
+			if (animal->state == AnimalState::HEALTHY || animal->state == AnimalState::SICK) {
+				expensesFood += animal->eatingFood;
 			}
 		}
 
@@ -477,8 +553,8 @@ public:
 			
 			// Сбрасываем счетчик дней без еды
 			for (auto& animal : animals) {
-				animal.daysWithoutFood = 0;
-				animal.happiness = std::max(100.f, animal.happiness+10);
+				animal->daysWithoutFood = 0;
+				animal->happiness = std::max(100.f, animal->happiness+10);
 			}
 		} else {
 			// Недостаточно еды, некоторые животные не поедят
@@ -487,14 +563,14 @@ public:
 			
 			for (size_t i = 0; i < animals.size(); i++) {
 				if (i < fedCount) {
-					animals[i].daysWithoutFood = 0;
+					animals[i]->daysWithoutFood = 0;
 				} else {
-					animals[i].daysWithoutFood++;
-					animals[i].happiness -= 10.0f;
+					animals[i]->daysWithoutFood++;
+					animals[i]->happiness -= 10.0f;
 					
 					// Если животное не ело 3 дня, оно может умереть с вероятностью 10%
-					if (animals[i].daysWithoutFood >= 3 && rand() % 10 == 0) {
-						animals[i].state = AnimalState::DEAD;
+					if (animals[i]->daysWithoutFood >= 3 && rand() % 10 == 0) {
+						animals[i]->state = AnimalState::DEAD;
 					}
 				}
 			}
@@ -504,9 +580,9 @@ public:
 		int deadCount = 0;
 		int sickCount = 0;
 		for (const auto& animal : animals) {
-			if (animal.state == AnimalState::DEAD) {
+			if (animal->state == AnimalState::DEAD) {
 				deadCount++;
-			} else if (animal.state == AnimalState::SICK) {
+			} else if (animal->state == AnimalState::SICK) {
 				sickCount++;
 			}
 		}
@@ -531,18 +607,10 @@ public:
 		
 		// Доход от посетителей
 		int visitors = getVisitors();
-		int healthyAnimalCount = animals.size() - deadCount;
+		int healthyAnimalCount = totalAnimal - deadCount;  // Используем totalAnimal вместо animals.size()
 		money += visitors * healthyAnimalCount;
 		
-		// Расходы на зарплату
-		for (auto& worker : workers) {
-			money -= worker.price;
-		}
-		
-		// Расходы на содержание вольеров
-		for (auto& enclosure : enclosures) {
-			money -= enclosure.dailyCost;
-		}
+		// Расходы на зарплату уже учтены выше, убираем дублирование
 		
 		// Влияние болезней и смертей на популярность
 		popularity -= sickCount;
@@ -555,20 +623,27 @@ public:
 		if (popularity < 10) popularity = 10;
 		if (popularity > 100) popularity = 100;
 		
-		// Удаляем мертвых животных
+		// Очищаем слабые указатели на мертвых животных в вольерах
 		for (auto& enclosure : enclosures) {
+			enclosure.cleanupExpiredAnimals();  // Используем нашу новую функцию для очистки
+			
+			// Удаляем мертвых животных из вольера
 			enclosure.animals.erase(
 				std::remove_if(enclosure.animals.begin(), enclosure.animals.end(),
-							   [](Animal* animal) { return animal->state == AnimalState::DEAD; }),
+							[](const std::weak_ptr<Animal>& weakAnimal) { 
+								auto animal = weakAnimal.lock();
+								return !animal || animal->state == AnimalState::DEAD; 
+							}),
 				enclosure.animals.end());
 		}
 		
-		// Удаляем мертвых животных из общего списка
-		for (int i = animals.size() - 1; i >= 0; i--) {
-			if (animals[i].state == AnimalState::DEAD) {
-				animals.erase(animals.begin() + i);
-			}
-		}
+		// // Удаляем мертвых животных из общего списка
+		// animals.erase(
+		// 	std::remove_if(animals.begin(), animals.end(),
+		// 				[](const std::shared_ptr<Animal>& animal) { 
+		// 					return animal->state == AnimalState::DEAD; 
+		// 				}),
+		// 	animals.end());
 		
 		// Обновляем историю
 		moneyHistory.push_back(money);

@@ -8,9 +8,31 @@
 Травоядные не могут жить с хищниками в одном вольере.
 */
 
+// Предварительное объявление класса Animal
+class Animal;
+
 enum class Diet { HERBIVORES, PREDATORS };
 enum class Climate { TROPIC, CONTINENT, ARCTIC, AQUATIC };
 enum class AnimalState { HEALTHY, SICK, DEAD, SELL };
+
+struct animalData
+{
+    int id;
+    int age;
+    bool guy;
+    Diet diet;
+    int price;
+    int weight;
+    float happiness;
+    Climate climate;
+    std::string name;
+    AnimalState state;
+    int eatingFood;
+    int daysWithoutFood;
+    int makeSex;
+    Animal* parent1; // Указатель на первого родителя
+    Animal* parent2; // Указатель на второго родителя
+};
 
 // Посмотрел сюда 10 баллов дополниельно поставил.
 class Animal {
@@ -39,17 +61,38 @@ public:
 		happiness(100.0f), daysWithoutFood(0) {
 			guy = (rand() % 2 == 0) ? true : false;
 		}
-		
-	// Возвращаем название климата.
-	std::string getClimateString() const {
-		switch (climate) {
-			case Climate::TROPIC: return "Тропики";
-			case Climate::CONTINENT: return "Умереный";
-			case Climate::ARCTIC: return "Арктика";
-			case Climate::AQUATIC: return "Водный";
-			default: return "Неизвестно";
-		}
+
+	// Используется для получения всех данных о животном
+	animalData getAnimalData() const {
+		animalData data;
+		data.id = id;
+		data.age = age;
+		data.guy = guy;
+		data.diet = diet;
+		data.price = price;
+		data.weight = weight;
+		data.happiness = happiness;
+		data.climate = climate;
+		data.name = name;
+		data.state = state;
+		data.eatingFood = eatingFood;
+		data.daysWithoutFood = daysWithoutFood;
+		data.makeSex = makeSex;
+		data.parent1 = parent1;
+		data.parent2 = parent2;
+		return data;
 	}
+		
+		// Возвращаем название климата.
+		std::string getClimateString() const {
+			switch (climate) {
+				case Climate::TROPIC: return "Тропики";
+				case Climate::CONTINENT: return "Умереный";
+				case Climate::ARCTIC: return "Арктика";
+				case Climate::AQUATIC: return "Водный";
+				default: return "Неизвестно";
+			}
+		}
 	
 	// Возвращает что жрет животное траву или мясо
 	std::string getDietString() const {
